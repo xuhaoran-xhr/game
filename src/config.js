@@ -826,7 +826,6 @@ const CONFIG = {
     SHADOW_CD_P2: 200,        // P2
     SHADOW_CD_P3: 120,        // P3
     SHADOW_EMERGE_FRAMES: 20, // 完整浮现动画帧数 (匹配 shadow 资源)
-    SHADOW_EMERGE_FPS: 12,    // 保留(legacy / 装甲动画用)
 
     // Trap 布置阶段
     SHADOW_ARM_END_FRAME: 8,  // 第三行第一个 = frame 8(1-indexed row 3 col 1)
@@ -851,13 +850,7 @@ const CONFIG = {
     SHADOW_COUNT_P1: 1,
     SHADOW_COUNT_P2: 2,
     SHADOW_COUNT_P3: 3,
-    SHADOW_MAX_ACTIVE: 10,   // 场上陷阱总数上限(≥此数时 boss 不再选择影之陷阱技能)
-    // Legacy 保留(实际不再引用)
-    SHADOW_CHASE_SPEED: 1.5,
-    SHADOW_DAMAGE: 18,
-    SHADOW_LIFE: 360,
-    SHADOW_HP: 40,
-    SHADOW_SPAWN_OFFSET: 140,
+    SHADOW_MAX_ACTIVE: 10,   // 场上陷阱总数上限（≥此数时 boss 不再选择影之陷阱技能）
 
     // ── 技能 2: 深渊触手 (Tentacle Launch) ──
     // 新逻辑:触手从目标位置长出(rows 1→2 = frames 0-15,像酸液 precast),
@@ -915,7 +908,6 @@ const CONFIG = {
     // ── 大招: 酸液之海 (Acid Ocean) ──
     // Boss HP 跨越每个阈值时各触发一次。数组从高到低排列,越往后越接近死亡。
     OCEAN_TRIGGER_HP_FRACS: [0.80, 0.50],  // 80% 与 50% 各触发一次
-    OCEAN_TRIGGER_HP_FRAC: 0.80,  // 保留(legacy,已被 _FRACS 替代)
     OCEAN_COUNT_MIN: 15,
     OCEAN_COUNT_MAX: 25,
     OCEAN_SIZE_MIN: 0.75,         // 相对正常酸柱大小
@@ -925,12 +917,8 @@ const CONFIG = {
     OCEAN_SPAWN_MARGIN_X: 0.05,   // 左右边界留白(占屏宽)
     OCEAN_SPAWN_TOP_FRAC: 0.25,   // 从屏幕 25% 高度开始放(避开 boss 所在顶部)
     OCEAN_SPAWN_BOTTOM_FRAC: 0.90, // 到屏幕 90% 高度
-    // Legacy 保留(部分 draw 代码仍可能引用)
+    // ACID_GROW_FRAMES 仍被 ANIM_ACID_LOOP 帧范围引用 (start: 8),概念上=前摇结束帧
     ACID_GROW_FRAMES: 8,
-    ACID_LOOP_FRAMES: 16,
-    ACID_GROW_FPS: 14,
-    ACID_LOOP_FPS: 12,
-    ACID_ACTIVE_DURATION: 150, // 2.5s — 保留作为 fallback
     ACID_TRAVEL_TIME: 40,     // 抛物线到达目标位置
     ACID_DAMAGE: 15,          // 每次触发伤害
     ACID_TICK_RATE: 15,       // 每 0.25s tick 一次伤害 (2× 频率)

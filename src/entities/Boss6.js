@@ -42,7 +42,6 @@ const ANIM_SHADOW_SINK     = 'boss6_shadow_sink';   // 8-0 reversed (arming inte
 const ANIM_SHADOW_RETRACT  = 'boss6_shadow_retract';// 13-0 reversed (imprison end → sink back down)
 const ANIM_TENTACLE_SPROUT = 'boss6_tentacle_sprout'; // frames 0-15 (rows 1+2) once
 const ANIM_TENTACLE_SWAY   = 'boss6_tentacle_sway';   // frames 16-23 (row 3) loop
-const ANIM_ACID_GROW       = 'boss6_acid_grow';
 const ANIM_ACID_PRECAST    = 'boss6_acid_precast'; // frames 0-1 infinite loop (warning)
 const ANIM_ACID_LOOP       = 'boss6_acid_loop';    // frames 8-15(middle row: full spray)
 const ANIM_ACID_RETRACT    = 'boss6_acid_retract'; // frames 7→0 REVERSED(retract/collapse)
@@ -120,13 +119,6 @@ export function registerBoss6Animations(scene) {
     repeat: -1,
   });
 
-  // Acid Grow — legacy grow (frames 0-7, once) kept for compatibility
-  scene.anims.create({
-    key: ANIM_ACID_GROW,
-    frames: scene.anims.generateFrameNumbers(KEY_ACID, { start: 0, end: 7 }),
-    frameRate: B6.ACID_GROW_FPS,
-    repeat: 0,
-  });
   // Acid Pre-cast warning — first 2 frames of row 0, INFINITE loop.
   // Duration is controlled by game-logic timer (ACID_PRECAST_DURATION_MIN/MAX).
   scene.anims.create({
@@ -369,21 +361,6 @@ function phaseCD(b, p1, p2, p3) {
 // =================================================================
 //  LAUNCH helpers — tentacle "knock up" mechanic
 // =================================================================
-/**
- * Player, enemies, AND bosses are all launchable now. The caller must make
- * sure the target's own update loop honors `target.launched` (every Boss[N]
- * update does an early-return when `b.launched` is set — see boss files).
- *
- * Previously bosses were excluded as "too heavy", which meant a charmed boss
- * caught by a tentacle just took direct damage instead of the full launch
- * treatment (and could still move/shoot during the "strike"). Enabling launch
- * makes the interaction consistent with enemies.
- */
-function isLaunchable(t, P) {
-  if (!t) return false;
-  return true;
-}
-
 /**
  * Find nearest shadow trap still in `armed_idle` (the "ready to snare" state).
  * Returns null if no armed trap exists. Used to redirect launch landing.
@@ -1132,7 +1109,7 @@ export function updateBoss6(b, P, bullets, eBullets, mines, particles, gameState
   // OCEAN_TRIGGER_HP_FRACS is an ordered list of HP fractions (e.g. [0.80, 0.50]).
   // Each is fired once, in order, the moment boss HP drops below it.
   {
-    const fracs = B6.OCEAN_TRIGGER_HP_FRACS || [B6.OCEAN_TRIGGER_HP_FRAC];
+    const fracs = B6.OCEAN_TRIGGER_HP_FRACS;
     while (b.oceanTriggerStage < fracs.length
            && b.hp < b.maxHp * fracs[b.oceanTriggerStage]) {
       b.oceanTriggerStage++;
@@ -1429,8 +1406,7 @@ export function updateBoss6(b, P, bullets, eBullets, mines, particles, gameState
             caught.hp -= burst;
             caught.hitFlash = 10;
             s.snareApplied = true;
-            s.snareTarget = caught;  // track for visuals + periodic re-snare
-            s.damageTarget = caught; // legacy visuals
+            s.snareTarget = caught; // track for visuals + periodic re-snare
           }
           particles.spawn(caught.x, caught.y, '#6600ff', 20, 5, 24, 3);
           gameState.screenShake = Math.max(gameState.screenShake, 6);
@@ -1447,7 +1423,7 @@ export function updateBoss6(b, P, bullets, eBullets, mines, particles, gameState
         tgt.vx = 0; tgt.vy = 0;
       }
       // Emit binding-tendril particles between shadow and whichever target was caught
-      const vizTarget = s.snareTarget || s.damageTarget;
+      const vizTarget = s.snareTarget;
       if (b.atkTimer % 4 === 0 && vizTarget && vizTarget.hp > 0) {
         const mx = (s.x + vizTarget.x) * 0.5 + (Math.random() - 0.5) * 20;
         const my = (s.y + vizTarget.y) * 0.5 + (Math.random() - 0.5) * 20;
@@ -1522,22 +1498,14 @@ export function updateBoss6(b, P, bullets, eBullets, mines, particles, gameState
         // Pick nearest hostile within HIT_RADIUS × scaleMul.
         const caught = nearestHostile(b, t.x, t.y, tHitR, P, enemies, otherBoss);
         if (caught) {
-          if (isLaunchable(caught, P)) {
-            // 落地伤害系数随触手尺寸缩放
-            beginLaunch(caught, b, W, H, tSMul);
-            particles.spawn(caught.x, caught.y, '#ff2255', 20, 6, 26, 4);
-            particles.spawn(caught.x, caught.y, '#8b2a4e', 14, 5, 22, 3);
-            gameState.screenShake = Math.max(gameState.screenShake, 7);
-            gameState.hitStop = Math.max(gameState.hitStop, 3);
-          } else {
-            // Too-heavy target (another boss) — just apply fall damage directly.
-            // 伤害随触手尺寸缩放
-            const dmg = Math.max(1, Math.floor((caught.maxHp || 100) * B6.TENTACLE_FALL_DMG_FRAC * tSMul));
-            caught.hp -= dmg;
-            caught.hitFlash = 10;
-            particles.spawn(caught.x, caught.y, '#ff2255', 16, 5, 24, 3);
-            gameState.screenShake = Math.max(gameState.screenShake, 5);
-          }
+          // All hostiles (player / enemies / charmed bosses) get launched; boss
+          // launch is safe because Boss1-5 update() early-returns on .launched.
+          // 落地伤害系数随触手尺寸缩放。
+          beginLaunch(caught, b, W, H, tSMul);
+          particles.spawn(caught.x, caught.y, '#ff2255', 20, 6, 26, 4);
+          particles.spawn(caught.x, caught.y, '#8b2a4e', 14, 5, 22, 3);
+          gameState.screenShake = Math.max(gameState.screenShake, 7);
+          gameState.hitStop = Math.max(gameState.hitStop, 3);
           t.struckTarget = caught;
         }
         // Transition to sway — sprite loops row 3.
@@ -2420,8 +2388,8 @@ function drawShadowFx(g, s, time, P, B6) {
     g.fillCircle(s.x, s.y - 8, 8);
     g.fillStyle(0xffffff, 0.9);
     g.fillCircle(s.x, s.y - 8, 3);
-    // Binding tendrils — draw to whichever target was caught (player snared OR enemy damaged)
-    const tgt = s.snareTarget || s.damageTarget;
+    // Binding tendrils — draw to whichever target was caught
+    const tgt = s.snareTarget;
     const tgtValid = tgt && tgt.hp > 0 && !(tgt === P && P.hidden);
     if (tgtValid) {
       const tgtR = tgt === P ? P.radius : (tgt.radius || 12);
