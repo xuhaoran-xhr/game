@@ -3,6 +3,7 @@
 // ===========================
 import CONFIG from '../config.js';
 import { ang, dist, lerp, clamp, getCharmedTarget } from '../utils.js';
+import { tickBossStatus } from '../bossShared/index.js';
 
 export function createBoss1(W, H, wave) {
   const BC = CONFIG.BOSS;
@@ -46,24 +47,8 @@ export function updateBoss1(boss, P, bullets, eBullets, mines, particles, gameSt
     return;
   }
 
-  b.hitFlash = Math.max(0, b.hitFlash - 1);
-  if (b.charmed > 0) {
-    b.charmed--;
-    if (b.charmed <= 0 && b.faction === 'ally') b.faction = 'enemy';
-  }
-
-  // ---- Snare (Boss6 shadow trap / other CC): freeze AI/move/attack ----
-  if (b.snared && b.snared > 0) {
-    b.snared--;
-    b.vx = 0; b.vy = 0;
-    return;
-  }
-
-  // ---- Launched (Boss6 tentacle): frozen — position/scale driven externally ----
-  if (b.launched) {
-    b.vx = 0; b.vy = 0;
-    return;
-  }
+  // Unified hit-flash + charmed decay + snared/launched early-return
+  if (tickBossStatus(b)) return;
 
   // ---- Determine target: charmed → nearest enemy, normal → player ----
   const isCharmed = b.faction === 'ally';

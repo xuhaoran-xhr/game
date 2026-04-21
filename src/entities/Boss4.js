@@ -5,6 +5,7 @@
 import CONFIG from '../config.js';
 import { ang, dist, lerp, clamp, rand, randInt, getCharmedTarget } from '../utils.js';
 import { startMatrixRain, updateMatrixPhase, stopMatrixRain } from '../systems/MatrixRain.js';
+import { tickBossStatus } from '../bossShared/index.js';
 
 // ===== Ghost CSS & DOM helpers =====
 let ghostCSSInjected = false;
@@ -501,29 +502,13 @@ export function updateBoss4(boss, P, bullets, eBullets, mines, particles, gameSt
     return false; // still dying
   }
 
-  b.hitFlash = Math.max(0, b.hitFlash - 1);
   b.atkTimer++;
   b.rotAngle += 0.008 + (b.phase >= 3 ? 0.004 : 0);
   b.innerRotAngle -= 0.012 - (b.phase >= 2 ? 0.003 : 0);
   b.outerRotAngle += 0.005;
   b.glitchTimer++;
-  if (b.charmed > 0) {
-    b.charmed--;
-    if (b.charmed <= 0 && b.faction === 'ally') b.faction = 'enemy';
-  }
-
-  // ---- Snare (Boss6 shadow trap / other CC): freeze AI/move/attack ----
-  if (b.snared && b.snared > 0) {
-    b.snared--;
-    b.vx = 0; b.vy = 0;
-    return;
-  }
-
-  // ---- Launched (Boss6 tentacle): frozen — position/scale driven externally ----
-  if (b.launched) {
-    b.vx = 0; b.vy = 0;
-    return;
-  }
+  // Unified hit-flash + charmed decay + snared/launched early-return
+  if (tickBossStatus(b)) return;
 
   // Afterimage trail — smooth tracking ribbon
   b.afterImages.unshift({ x: b.x, y: b.y, alpha: 1.0, phase: b.phase });
