@@ -1,0 +1,26 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+
+# Local Netlify folder
+.netlify
+
+# Build logs
+build_log.txt
+
+# Local agent artifacts
+.agent/
+
+# Cloudflare Wrangler cache
+.wrangler/
+
+# Windsurf workspace files
+.windsurf/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

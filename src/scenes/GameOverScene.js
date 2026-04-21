@@ -1,0 +1,191 @@
+// ===========================
+//  GameOverScene — death screen + restart / menu
+//  Design: Exact match of index.html Brutalist style (Light + Chinese)
+// ===========================
+import GameState from '../GameState.js';
+import { initCleanup } from '../systems/SceneCleanupMixin.js';
+
+export default class GameOverScene extends Phaser.Scene {
+  constructor() {
+    super('GameOverScene');
+  }
+
+  init(data) {
+    this.kills = data.kills || 0;
+    this.wave = data.wave || 1;
+    this.gameMode = data.gameMode || 'normal';
+  }
+
+  create() {
+    initCleanup(this);
+
+    const W = this.scale.width;
+    const H = this.scale.height;
+
+    this.menuDOM = null;
+    this.createDOM(W, H);
+
+    this._resizeHandler = (gameSize) => {
+      this.removeDOM();
+      this.createDOM(gameSize.width, gameSize.height);
+    };
+    this.trackScaleListener('resize', this._resizeHandler);
+  }
+
+  createDOM(W, H) {
+    this.removeDOM();
+
+    const div = document.createElement('div');
+    div.id = 'gameover-ui';
+    div.innerHTML = `
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+
+        :root {
+          --bg: #F5F2EE;
+          --fg: #1A1A1A;
+          --gold: #C8A96E;
+          --card: #FFFFFF;
+          --gray: #888888;
+          --deco: #E8E2DA;
+          --danger: #C44536;
+        }
+
+        #gameover-ui {
+          position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+          background: rgba(245,242,238,0.85); /* Light overlay */
+          display: flex; align-items: center; justify-content: center;
+          z-index: 1000; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+        }
+        /* CSS Reset for gameover */
+        #gameover-ui { box-sizing: border-box; }
+        #gameover-ui *, #gameover-ui *::before, #gameover-ui *::after { box-sizing: inherit; }
+        #gameover-ui h1, #gameover-ui p { margin: 0; padding: 0; }
+
+        #gameover-ui .go-card {
+          width: 960px; background: var(--card);
+          border: 4px solid var(--fg); border-radius: 0;
+          padding: 80px 100px; position: relative;
+          text-align: center; color: var(--fg);
+          transition: all 0.15s;
+        }
+        .go-card:hover {
+          transform: translate(-6px, -6px);
+          box-shadow: 12px 12px 0 var(--fg);
+        }
+
+        .go-deco {
+          position: absolute; top: 24px; right: 36px;
+          font-size: 160px; font-weight: 900; color: var(--deco);
+          line-height: 1; pointer-events: none; letter-spacing: -6px;
+        }
+
+        .go-title {
+          font-size: 80px; font-weight: 900; color: var(--danger);
+          text-transform: uppercase; letter-spacing: 12px; margin-bottom: 16px;
+        }
+        .go-subtitle {
+          font-size: 20px; font-weight: 700; text-transform: uppercase;
+          letter-spacing: 6px; color: var(--gray); margin-bottom: 64px;
+        }
+
+        .go-stats {
+          display: flex; gap: 0; margin-bottom: 64px;
+          border: 4px solid var(--fg); background: var(--bg);
+        }
+        .go-stat {
+          flex: 1; padding: 40px; text-align: center;
+          border-right: 4px solid var(--fg);
+        }
+        .go-stat:last-child { border-right: none; }
+        .go-stat-label {
+          font-size: 20px; font-weight: 700; text-transform: uppercase;
+          letter-spacing: 4px; color: var(--gray); margin-bottom: 16px;
+        }
+        .go-stat-value {
+          font-size: 64px; font-weight: 900; color: var(--fg);
+          font-family: 'Inter', sans-serif;
+        }
+
+        .go-btn {
+          width: 100%; height: 88px; border: 4px solid var(--fg);
+          border-radius: 0; background: var(--fg); color: var(--bg);
+          font-size: 24px; font-weight: 900; font-family: 'Inter', sans-serif;
+          text-transform: uppercase; letter-spacing: 6px;
+          cursor: pointer; transition: all 0.15s; margin-bottom: 24px;
+        }
+        .go-btn:hover {
+          background: var(--gold); border-color: var(--gold); color: var(--fg);
+          transform: translate(-6px, -6px); box-shadow: 12px 12px 0 var(--fg);
+        }
+        .go-btn:active { transform: translate(0,0); box-shadow: none; }
+
+        .go-btn-ghost {
+          width: 100%; height: 72px; border: 4px solid var(--fg);
+          border-radius: 0; background: var(--card); color: var(--fg);
+          font-size: 18px; font-weight: 900; font-family: 'Inter', sans-serif;
+          text-transform: uppercase; letter-spacing: 4px;
+          cursor: pointer; transition: all 0.15s;
+        }
+        .go-btn-ghost:hover {
+          background: var(--fg); color: var(--bg);
+          transform: translate(-4px, -4px); box-shadow: 8px 8px 0 var(--gold);
+        }
+
+        @media (max-width: 480px) {
+          .go-card { width: 94vw; padding: 36px 20px 28px; }
+        }
+      </style>
+
+      <div class="go-card">
+        <div class="go-deco">KO</div>
+        <h1 class="go-title">游戏结束</h1>
+        <p class="go-subtitle">YOU HAVE BEEN ELIMINATED</p>
+
+        <div class="go-stats">
+          <div class="go-stat">
+            <div class="go-stat-label">击杀数</div>
+            <div class="go-stat-value">${this.kills}</div>
+          </div>
+          <div class="go-stat">
+            <div class="go-stat-label">${this.gameMode === 'bossRush' ? '生存轮次' : '生存波次'}</div>
+            <div class="go-stat-value">${this.wave}</div>
+          </div>
+        </div>
+
+        <button class="go-btn" id="goRestartBtn">重新开始 →</button>
+        <button class="go-btn-ghost" id="goMenuBtn">← 返回主菜单</button>
+      </div>
+    `;
+
+    document.body.appendChild(div);
+    this.menuDOM = div;
+    this.trackDOM(div);
+
+    div.querySelector('#goRestartBtn').addEventListener('click', () => {
+      this.removeDOM();
+      this.scene.stop('GameOverScene');
+      this.scene.stop('GameScene');
+      this.scene.start('GameScene', {
+        characterType: GameState.selectedCharacter,
+        gameMode: this.gameMode,
+        startWeapon: GameState.startWeapon,
+        shakeMultiplier: GameState.shakeMultiplier,
+      });
+    });
+
+    div.querySelector('#goMenuBtn').addEventListener('click', () => {
+      this.removeDOM();
+      this.scene.stop('GameOverScene');
+      this.scene.stop('GameScene');
+      this.scene.start('MenuScene');
+    });
+  }
+
+  removeDOM() {
+    if (this.menuDOM) {
+      this.menuDOM.remove();
+      this.menuDOM = null;
+    }
+  }
+}

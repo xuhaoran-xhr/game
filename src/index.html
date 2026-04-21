@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NEON OPS</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #080810; overflow: hidden; cursor: crosshair; font-family: 'Segoe UI', sans-serif; }
+    canvas { display: block; position: relative; z-index: 1; }
+
+    /* ===== Boss4 Matrix Code Rain ===== */
+    #boss4-matrix {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      pointer-events: none;
+      z-index: 9999;
+      overflow: hidden;
+      opacity: 0;
+      transition: opacity 2s ease;
+    }
+    #boss4-matrix.phase1 { --mc: #00ffff; --mm: #00bbcc; --md: #007788; --mf: #004455; }
+    #boss4-matrix.phase2 { --mc: #ff00ff; --mm: #cc00bb; --md: #880077; --mf: #550044; }
+    #boss4-matrix.phase3 { --mc: #ff0066; --mm: #cc0044; --md: #880033; --mf: #550022; }
+
+    .matrix-pattern { position: absolute; top:0; left:0; width:100%; height:100%; }
+    .matrix-column {
+      position: absolute;
+      top: -100%;
+      width: 22px;
+      height: 100%;
+      font-size: 17px;
+      line-height: 19px;
+      font-weight: bold;
+      animation: mfall linear infinite;
+      white-space: nowrap;
+    }
+    .matrix-column::before {
+      content: "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEF";
+      position: absolute; top:0; left:0;
+      background: linear-gradient(to bottom,
+        #fff 0%, #fff 4%,
+        var(--mc, #00ffff) 9%, var(--mc, #00ffff) 20%,
+        var(--mm, #00bbcc) 35%, var(--md, #007788) 55%,
+        var(--mf, #004455) 75%, transparent 100%
+      );
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+      writing-mode: vertical-lr; letter-spacing: 1px;
+    }
+    .matrix-column:nth-child(odd)::before {
+      content: "アカサタナハマヤラワイキシチニヒミリウクスツヌフムユルエケセテネヘメレオコソ0987654321";
+    }
+    .matrix-column:nth-child(3n)::before {
+      content: "01001010 PROTOCOL OMEGA 11010101 FATAL ERROR 00110011 SYSTEM BREACH";
+    }
+    .matrix-column:nth-child(4n)::before {
+      content: "ンヲロヨモホノトソコオレメヘネテセケエルユムフヌツスクウリミヒニチシキイワラヤマハナタサカア";
+    }
+    .matrix-column:nth-child(5n)::before {
+      content: "WARNING 0xFF OVERFLOW STACK HEAP SEGFAULT KERNEL PANIC !ABORT CRITICAL";
+    }
+    .matrix-column:nth-child(1){left:0;animation-delay:-2.5s;animation-duration:3s}
+    .matrix-column:nth-child(2){left:25px;animation-delay:-3.2s;animation-duration:4s}
+    .matrix-column:nth-child(3){left:50px;animation-delay:-1.8s;animation-duration:2.5s}
+    .matrix-column:nth-child(4){left:75px;animation-delay:-2.9s;animation-duration:3.5s}
+    .matrix-column:nth-child(5){left:100px;animation-delay:-1.5s;animation-duration:3s}
+    .matrix-column:nth-child(6){left:125px;animation-delay:-3.8s;animation-duration:4.5s}
+    .matrix-column:nth-child(7){left:150px;animation-delay:-2.1s;animation-duration:2.8s}
+    .matrix-column:nth-child(8){left:175px;animation-delay:-2.7s;animation-duration:3.2s}
+    .matrix-column:nth-child(9){left:200px;animation-delay:-3.4s;animation-duration:3.8s}
+    .matrix-column:nth-child(10){left:225px;animation-delay:-1.9s;animation-duration:2.7s}
+    .matrix-column:nth-child(11){left:250px;animation-delay:-3.6s;animation-duration:4.2s}
+    .matrix-column:nth-child(12){left:275px;animation-delay:-2.3s;animation-duration:3.1s}
+    .matrix-column:nth-child(13){left:300px;animation-delay:-3.1s;animation-duration:3.6s}
+    .matrix-column:nth-child(14){left:325px;animation-delay:-2.6s;animation-duration:2.9s}
+    .matrix-column:nth-child(15){left:350px;animation-delay:-3.7s;animation-duration:4.1s}
+    .matrix-column:nth-child(16){left:375px;animation-delay:-2.8s;animation-duration:3.3s}
+    .matrix-column:nth-child(17){left:400px;animation-delay:-3.3s;animation-duration:3.7s}
+    .matrix-column:nth-child(18){left:425px;animation-delay:-2.2s;animation-duration:2.6s}
+    .matrix-column:nth-child(19){left:450px;animation-delay:-3.9s;animation-duration:4.3s}
+    .matrix-column:nth-child(20){left:475px;animation-delay:-2.4s;animation-duration:3.4s}
+    .matrix-column:nth-child(21){left:500px;animation-delay:-1.7s;animation-duration:2.4s}
+    .matrix-column:nth-child(22){left:525px;animation-delay:-3.5s;animation-duration:3.9s}
+    .matrix-column:nth-child(23){left:550px;animation-delay:-2s;animation-duration:3s}
+    .matrix-column:nth-child(24){left:575px;animation-delay:-4s;animation-duration:4.4s}
+    .matrix-column:nth-child(25){left:600px;animation-delay:-1.6s;animation-duration:2.3s}
+    .matrix-column:nth-child(26){left:625px;animation-delay:-3s;animation-duration:3.5s}
+    .matrix-column:nth-child(27){left:650px;animation-delay:-3.8s;animation-duration:4s}
+    .matrix-column:nth-child(28){left:675px;animation-delay:-2.5s;animation-duration:2.8s}
+    .matrix-column:nth-child(29){left:700px;animation-delay:-3.2s;animation-duration:3.6s}
+    .matrix-column:nth-child(30){left:725px;animation-delay:-2.7s;animation-duration:3.2s}
+    .matrix-column:nth-child(31){left:750px;animation-delay:-1.8s;animation-duration:2.7s}
+    .matrix-column:nth-child(32){left:775px;animation-delay:-3.6s;animation-duration:4.1s}
+    .matrix-column:nth-child(33){left:800px;animation-delay:-2.1s;animation-duration:3.1s}
+    .matrix-column:nth-child(34){left:825px;animation-delay:-3.4s;animation-duration:3.7s}
+    .matrix-column:nth-child(35){left:850px;animation-delay:-2.8s;animation-duration:2.9s}
+    .matrix-column:nth-child(36){left:875px;animation-delay:-3.7s;animation-duration:4.2s}
+    .matrix-column:nth-child(37){left:900px;animation-delay:-2.3s;animation-duration:3.3s}
+    .matrix-column:nth-child(38){left:925px;animation-delay:-1.9s;animation-duration:2.5s}
+    .matrix-column:nth-child(39){left:950px;animation-delay:-3.5s;animation-duration:3.8s}
+    .matrix-column:nth-child(40){left:975px;animation-delay:-2.6s;animation-duration:3.4s}
+
+    @keyframes mfall {
+      0% { transform: translateY(-10%); opacity: 1; }
+      100% { transform: translateY(200%); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+
+  <!-- Boss4 Matrix Code Rain (hidden by default, AFTER canvas so z-index works) -->
+  <div id="boss4-matrix" class="phase1">
+    <div class="matrix-pattern">
+      <div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div>
+      <div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div>
+      <div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div>
+      <div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div>
+      <div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div>
+      <div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div>
+      <div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div>
+      <div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div>
+    </div>
+    <div class="matrix-pattern" style="transform:translateX(12px)">
+      <div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div>
+      <div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div>
+      <div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div>
+      <div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div>
+      <div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div>
+      <div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div>
+      <div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div>
+      <div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div><div class="matrix-column"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
+
