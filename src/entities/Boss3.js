@@ -3,7 +3,7 @@
 // ===========================
 import CONFIG from '../config.js';
 import { ang, dist, lerp, clamp, rand, getCharmedTarget } from '../utils.js';
-import { tickBossStatus, pickFirstBoss } from '../bossShared/index.js';
+import { tickBossStatus, findOtherBoss } from '../bossShared/index.js';
 
 export function createBoss3(W, H, wave) {
   const B3 = CONFIG.BOSS3;
@@ -46,8 +46,6 @@ export function updateBoss3(boss3, P, bullets, eBullets, mines, particles, gameS
   const B3 = CONFIG.BOSS3;
   const W = gameState.W;
   const H = gameState.H;
-  // GameScene now passes an array; Boss3's legacy code expects a single object.
-  otherBoss = pickFirstBoss(otherBoss);
 
   // Entry
   if (!b.entered) {
@@ -67,7 +65,8 @@ export function updateBoss3(boss3, P, bullets, eBullets, mines, particles, gameS
     const ct = getCharmedTarget(b, enemies, otherBoss);
     T = ct.target || (P.hidden ? null : P);
   } else if (P.hidden) {
-    if (otherBoss && otherBoss.faction === 'ally' && otherBoss.hp > 0) T = otherBoss;
+    const allyBoss = findOtherBoss(otherBoss, (ob) => ob.faction === 'ally');
+    if (allyBoss) T = allyBoss;
     else if (enemies) {
       for (const e of enemies) { if (e.faction === 'ally') { T = e; break; } }
     }
@@ -97,9 +96,10 @@ export function updateBoss3(boss3, P, bullets, eBullets, mines, particles, gameS
           if (threat > maxThreat) { maxThreat = threat; maxTarget = e; }
         }
       }
-      if (otherBoss && otherBoss.faction === 'ally' && otherBoss.hp > 0) {
+      const allyBoss = findOtherBoss(otherBoss, (ob) => ob.faction === 'ally');
+      if (allyBoss) {
         const threat = b.threatTable.otherBoss || 0;
-        if (threat > maxThreat) { maxThreat = threat; maxTarget = otherBoss; }
+        if (threat > maxThreat) { maxThreat = threat; maxTarget = allyBoss; }
       }
       b.threatTable.target = maxTarget;
       b.threatTable.player = 0;

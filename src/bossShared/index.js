@@ -12,7 +12,8 @@ export {
   collectHostiles,
   nearestHostile,
   countHostilesNear,
-  pickFirstBoss,
+  forEachOtherBoss,
+  findOtherBoss,
 } from './targeting.js';
 
 export { applyAoEDamage } from './aoe.js';

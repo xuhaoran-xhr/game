@@ -1631,9 +1631,9 @@ export default class GameScene extends Phaser.Scene {
     this.bosses = this.bosses.filter(boss => {
       const otherBosses = this.bosses.filter(ob => ob !== boss && ob.hp > 0);
       const otherBossHpBefore = new Map(otherBosses.map(ob => [ob, ob.hp]));
-      // All bosses now accept an otherBoss array. Single-boss-only code paths
-      // (Boss1-4, Boss6) call `pickFirstBoss(otherBoss)` at update top to
-      // normalize back to a single value — see bossShared/targeting.js.
+      // All bosses natively consume an otherBoss array. They use
+      // forEachOtherBoss / findOtherBoss from bossShared to iterate / pick
+      // targets — no more single/array ambiguity or `isBoss5` special case.
       const dead = boss.updateFn(boss, P, this.bullets, this.eBullets, this.mines, this.particles, this.gameStateProxy, WEAPONS, this.enemies, otherBosses);
       if (boss.faction === 'ally') {
         for (const ob of otherBosses) {

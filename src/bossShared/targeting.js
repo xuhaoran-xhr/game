@@ -89,16 +89,35 @@ export function countHostilesNear(src, x, y, radius, P, enemies, otherBoss) {
 }
 
 /**
- * Historically GameScene passed a SINGLE otherBoss to each boss's update(), or
- * the full array only to Boss5 (via `boss.isBoss5` flag). Now GameScene
- * uniformly passes an array; bosses that still do per-field access on
- * otherBoss can call `pickFirstBoss(otherBoss)` at the top of their update
- * to get back the single-boss value they expect.
+ * Iterate each alive (hp > 0) entry from an `otherBoss` value that may be an
+ * array (preferred) or a single object (legacy). Hides the
+ * single-vs-array ambiguity so boss update code can do e.g.
  *
- * Returns the first element of an array, or the value itself if not an array,
- * or null if empty/undefined.
+ *   forEachOtherBoss(otherBoss, (ob) => {
+ *     if (ob.faction !== 'ally' && inRange(ob)) dealDamage(ob);
+ *   });
  */
-export function pickFirstBoss(otherBoss) {
-  if (Array.isArray(otherBoss)) return otherBoss[0] || null;
-  return otherBoss || null;
+export function forEachOtherBoss(otherBoss, fn) {
+  if (Array.isArray(otherBoss)) {
+    for (const ob of otherBoss) {
+      if (ob && ob.hp > 0) fn(ob);
+    }
+  } else if (otherBoss && otherBoss.hp > 0) {
+    fn(otherBoss);
+  }
+}
+
+/**
+ * Find the first alive `otherBoss` entry that matches `predicate(ob)`. Returns
+ * null if nothing matches. Used for "pick one target" situations (e.g. charmed
+ * boss's target selection).
+ */
+export function findOtherBoss(otherBoss, predicate) {
+  if (Array.isArray(otherBoss)) {
+    for (const ob of otherBoss) {
+      if (ob && ob.hp > 0 && predicate(ob)) return ob;
+    }
+    return null;
+  }
+  return (otherBoss && otherBoss.hp > 0 && predicate(otherBoss)) ? otherBoss : null;
 }

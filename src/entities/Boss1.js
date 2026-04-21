@@ -3,7 +3,7 @@
 // ===========================
 import CONFIG from '../config.js';
 import { ang, dist, lerp, clamp, getCharmedTarget } from '../utils.js';
-import { tickBossStatus, pickFirstBoss } from '../bossShared/index.js';
+import { tickBossStatus, findOtherBoss } from '../bossShared/index.js';
 
 export function createBoss1(W, H, wave) {
   const BC = CONFIG.BOSS;
@@ -39,9 +39,6 @@ export function updateBoss1(boss, P, bullets, eBullets, mines, particles, gameSt
   const b = boss;
   const W = gameState.W;
   const H = gameState.H;
-  // GameScene now passes an array; Boss1's legacy code expects a single object.
-  otherBoss = pickFirstBoss(otherBoss);
-
   // Entry animation
   if (!b.entered) {
     b.y = lerp(b.y, H * 0.22, 0.02);
@@ -59,8 +56,9 @@ export function updateBoss1(boss, P, bullets, eBullets, mines, particles, gameSt
     const ct = getCharmedTarget(b, enemies, otherBoss);
     T = ct.target || (P.hidden ? null : P);
   } else if (P.hidden) {
-    // Player removed: target charmed enemies or charmed otherBoss
-    if (otherBoss && otherBoss.faction === 'ally' && otherBoss.hp > 0) T = otherBoss;
+    // Player removed: target charmed otherBoss(es) first, then any ally enemy
+    const allyBoss = findOtherBoss(otherBoss, (ob) => ob.faction === 'ally');
+    if (allyBoss) T = allyBoss;
     else if (enemies) {
       for (const e of enemies) { if (e.faction === 'ally') { T = e; break; } }
     }
@@ -91,10 +89,11 @@ export function updateBoss1(boss, P, bullets, eBullets, mines, particles, gameSt
           if (threat > maxThreat) { maxThreat = threat; maxTarget = e; }
         }
       }
-      // Also consider charmed otherBoss
-      if (otherBoss && otherBoss.faction === 'ally' && otherBoss.hp > 0) {
+      // Also consider charmed otherBoss(es) — highest threat wins
+      const allyBoss = findOtherBoss(otherBoss, (ob) => ob.faction === 'ally');
+      if (allyBoss) {
         const threat = b.threatTable.otherBoss || 0;
-        if (threat > maxThreat) { maxThreat = threat; maxTarget = otherBoss; }
+        if (threat > maxThreat) { maxThreat = threat; maxTarget = allyBoss; }
       }
       b.threatTable.target = maxTarget;
       b.threatTable.player = 0;

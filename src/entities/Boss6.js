@@ -31,7 +31,8 @@ import {
   applyAoEDamage,
   phaseCount,
   phaseCD,
-  pickFirstBoss,
+  forEachOtherBoss,
+  findOtherBoss,
 } from '../bossShared/index.js';
 
 // Vite handles PNG imports natively — returns a URL/path suitable for Phaser.
@@ -868,10 +869,6 @@ export function updateBoss6(b, P, bullets, eBullets, mines, particles, gameState
   const B6 = CONFIG.BOSS6;
   const W = gameState.W, H = gameState.H;
   const scene = gameState.scene;
-  // GameScene now passes an array; most of Boss6's code expects a single
-  // object (threat table, target selection, etc). Shared helpers support
-  // both forms, but direct field access below doesn't.
-  otherBoss = pickFirstBoss(otherBoss);
 
   // ========= Death sequence =========
   if (b.dying) {
@@ -1045,12 +1042,14 @@ export function updateBoss6(b, P, bullets, eBullets, mines, particles, gameState
   const isCharmed = b.faction === 'ally';
   let T = P.hidden ? null : P;
   if (isCharmed) {
-    if (otherBoss && otherBoss.faction !== 'ally' && otherBoss.hp > 0) T = otherBoss;
+    const enemyBoss = findOtherBoss(otherBoss, (ob) => ob.faction !== 'ally');
+    if (enemyBoss) T = enemyBoss;
     else if (enemies) {
       for (const e of enemies) { if (e.faction !== 'ally' && e.hp > 0) { T = e; break; } }
     }
   } else if (P.hidden) {
-    if (otherBoss && otherBoss.faction === 'ally' && otherBoss.hp > 0) T = otherBoss;
+    const allyBoss = findOtherBoss(otherBoss, (ob) => ob.faction === 'ally');
+    if (allyBoss) T = allyBoss;
     else if (enemies) {
       for (const e of enemies) { if (e.faction === 'ally') { T = e; break; } }
     }
@@ -1070,9 +1069,10 @@ export function updateBoss6(b, P, bullets, eBullets, mines, particles, gameState
           if (threat > maxThreat) { maxThreat = threat; maxTarget = e; }
         }
       }
-      if (otherBoss && otherBoss.faction === 'ally' && otherBoss.hp > 0) {
+      const allyBoss = findOtherBoss(otherBoss, (ob) => ob.faction === 'ally');
+      if (allyBoss) {
         const threat = b.threatTable.otherBoss || 0;
-        if (threat > maxThreat) { maxThreat = threat; maxTarget = otherBoss; }
+        if (threat > maxThreat) { maxThreat = threat; maxTarget = allyBoss; }
       }
       b.threatTable.target = maxTarget;
       b.threatTable.player = 0;
@@ -1438,13 +1438,7 @@ export function updateBoss6(b, P, bullets, eBullets, mines, particles, gameState
   if (P && P.launched) launchedVictims.push(P);
   if (enemies) for (const e of enemies) { if (e.launched) launchedVictims.push(e); }
   // otherBoss is now launchable (bosses' update early-returns on `.launched`).
-  if (otherBoss) {
-    if (Array.isArray(otherBoss)) {
-      for (const ob of otherBoss) { if (ob && ob.launched) launchedVictims.push(ob); }
-    } else if (otherBoss.launched) {
-      launchedVictims.push(otherBoss);
-    }
-  }
+  forEachOtherBoss(otherBoss, (ob) => { if (ob.launched) launchedVictims.push(ob); });
   for (const v of launchedVictims) {
     const L = v.launched;
     // Cache fallDamage/trap before tickLaunched clears L

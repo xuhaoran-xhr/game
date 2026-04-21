@@ -5,7 +5,7 @@
 import CONFIG from '../config.js';
 import { ang, dist, lerp, clamp, rand, randInt, getCharmedTarget } from '../utils.js';
 import { startMatrixRain, updateMatrixPhase, stopMatrixRain } from '../systems/MatrixRain.js';
-import { tickBossStatus, pickFirstBoss } from '../bossShared/index.js';
+import { tickBossStatus, forEachOtherBoss, findOtherBoss } from '../bossShared/index.js';
 
 // ===== Ghost CSS & DOM helpers =====
 let ghostCSSInjected = false;
@@ -429,8 +429,6 @@ export function updateBoss4(boss, P, bullets, eBullets, mines, particles, gameSt
   const B4 = CONFIG.BOSS4;
   const W = gameState.W;
   const H = gameState.H;
-  // GameScene now passes an array; Boss4's legacy code expects a single object.
-  otherBoss = pickFirstBoss(otherBoss);
 
   // ===== ENTRANCE SEQUENCE =====
   if (!b.entered) {
@@ -562,7 +560,8 @@ export function updateBoss4(boss, P, bullets, eBullets, mines, particles, gameSt
     const ct = getCharmedTarget(b, enemies, otherBoss);
     T = ct.target || (P.hidden ? null : P);
   } else if (P.hidden) {
-    if (otherBoss && otherBoss.faction === 'ally' && otherBoss.hp > 0) T = otherBoss;
+    const allyBoss = findOtherBoss(otherBoss, (ob) => ob.faction === 'ally');
+    if (allyBoss) T = allyBoss;
     else if (enemies) {
       for (const e of enemies) { if (e.faction === 'ally') { T = e; break; } }
     }
@@ -595,9 +594,10 @@ export function updateBoss4(boss, P, bullets, eBullets, mines, particles, gameSt
           if (threat > maxThreat) { maxThreat = threat; maxTarget = e; }
         }
       }
-      if (otherBoss && otherBoss.faction === 'ally' && otherBoss.hp > 0) {
+      const allyBoss = findOtherBoss(otherBoss, (ob) => ob.faction === 'ally');
+      if (allyBoss) {
         const threat = b.threatTable.otherBoss || 0;
-        if (threat > maxThreat) { maxThreat = threat; maxTarget = otherBoss; }
+        if (threat > maxThreat) { maxThreat = threat; maxTarget = allyBoss; }
       }
       b.threatTable.target = maxTarget;
       b.threatTable.player = 0;
@@ -694,19 +694,17 @@ export function updateBoss4(boss, P, bullets, eBullets, mines, particles, gameSt
         }
       }
     }
-    if (otherBoss && otherBoss.hp > 0) {
-      const od = dist(b, otherBoss);
-      if (Math.abs(od - b.shockwaveRadius) < 30) {
-        const shouldDmg = isCharmed ? (otherBoss.faction === 'enemy') : (otherBoss.faction === 'ally');
-        if (shouldDmg) {
-          otherBoss.hp -= B4.PHASE2.STRIKE_DAMAGE;
-          otherBoss.hitFlash = 6;
-          const ka = ang(b, otherBoss);
-          otherBoss.vx = (otherBoss.vx||0) + Math.cos(ka) * B4.PHASE2.SHOCKWAVE_KNOCKBACK;
-          otherBoss.vy = (otherBoss.vy||0) + Math.sin(ka) * B4.PHASE2.SHOCKWAVE_KNOCKBACK;
-        }
-      }
-    }
+    forEachOtherBoss(otherBoss, (ob) => {
+      const od = dist(b, ob);
+      if (Math.abs(od - b.shockwaveRadius) >= 30) return;
+      const shouldDmg = isCharmed ? (ob.faction === 'enemy') : (ob.faction === 'ally');
+      if (!shouldDmg) return;
+      ob.hp -= B4.PHASE2.STRIKE_DAMAGE;
+      ob.hitFlash = 6;
+      const ka = ang(b, ob);
+      ob.vx = (ob.vx||0) + Math.cos(ka) * B4.PHASE2.SHOCKWAVE_KNOCKBACK;
+      ob.vy = (ob.vy||0) + Math.sin(ka) * B4.PHASE2.SHOCKWAVE_KNOCKBACK;
+    });
     if (b.shockwaveRadius >= swMax) b.shockwaveActive = false;
   }
 
@@ -907,12 +905,13 @@ export function updateBoss4(boss, P, bullets, eBullets, mines, particles, gameSt
               }
             }
           }
-          if (otherBoss && otherBoss.hp > 0 && otherBoss.faction !== 'ally') {
-            if (_hitBeam(otherBoss.x, otherBoss.y, otherBoss.radius||30)) {
-              otherBoss.hp -= p1.SLICE_DAMAGE_PER_FRAME;
-              otherBoss.hitFlash = 4;
+          forEachOtherBoss(otherBoss, (ob) => {
+            if (ob.faction === 'ally') return;
+            if (_hitBeam(ob.x, ob.y, ob.radius||30)) {
+              ob.hp -= p1.SLICE_DAMAGE_PER_FRAME;
+              ob.hitFlash = 4;
             }
-          }
+          });
         } else {
           if (!P.hidden && !P.invincible) {
             if (_hitBeam(P.x, P.y, P.radius)) {
@@ -928,12 +927,13 @@ export function updateBoss4(boss, P, bullets, eBullets, mines, particles, gameSt
               }
             }
           }
-          if (otherBoss && otherBoss.hp > 0 && otherBoss.faction === 'ally') {
-            if (_hitBeam(otherBoss.x, otherBoss.y, otherBoss.radius||30)) {
-              otherBoss.hp -= p1.SLICE_DAMAGE_PER_FRAME;
-              otherBoss.hitFlash = 4;
+          forEachOtherBoss(otherBoss, (ob) => {
+            if (ob.faction !== 'ally') return;
+            if (_hitBeam(ob.x, ob.y, ob.radius||30)) {
+              ob.hp -= p1.SLICE_DAMAGE_PER_FRAME;
+              ob.hitFlash = 4;
             }
-          }
+          });
         }
         if (b.sliceDuration <= 0) b.sliceActive = false;
       }
@@ -1005,13 +1005,13 @@ export function updateBoss4(boss, P, bullets, eBullets, mines, particles, gameSt
               }
             }
           }
-          // Also damage non-charmed otherBoss
-          if (otherBoss && otherBoss.hp > 0 && otherBoss.faction !== 'ally') {
-            if (dist(s, otherBoss) < p2.STRIKE_RADIUS + (otherBoss.radius||30)) {
-              otherBoss.hp -= p2.STRIKE_DAMAGE;
-              otherBoss.hitFlash = 8;
+          forEachOtherBoss(otherBoss, (ob) => {
+            if (ob.faction === 'ally') return;
+            if (dist(s, ob) < p2.STRIKE_RADIUS + (ob.radius||30)) {
+              ob.hp -= p2.STRIKE_DAMAGE;
+              ob.hitFlash = 8;
             }
-          }
+          });
         } else {
           if (!P.hidden && !P.invincible && dist(s, P) < p2.STRIKE_RADIUS + P.radius) {
             gameState.dmgPlayer(p2.STRIKE_DAMAGE);
@@ -1027,13 +1027,13 @@ export function updateBoss4(boss, P, bullets, eBullets, mines, particles, gameSt
               }
             }
           }
-          // Also damage charmed otherBoss
-          if (otherBoss && otherBoss.hp > 0 && otherBoss.faction === 'ally') {
-            if (dist(s, otherBoss) < p2.STRIKE_RADIUS + (otherBoss.radius||30)) {
-              otherBoss.hp -= p2.STRIKE_DAMAGE;
-              otherBoss.hitFlash = 8;
+          forEachOtherBoss(otherBoss, (ob) => {
+            if (ob.faction !== 'ally') return;
+            if (dist(s, ob) < p2.STRIKE_RADIUS + (ob.radius||30)) {
+              ob.hp -= p2.STRIKE_DAMAGE;
+              ob.hitFlash = 8;
             }
-          }
+          });
         }
         // Leave fire zone
         b.fires.push({
@@ -1057,12 +1057,12 @@ export function updateBoss4(boss, P, bullets, eBullets, mines, particles, gameSt
             }
           }
         }
-        // Also damage non-charmed otherBoss
-        if (otherBoss && otherBoss.hp > 0 && otherBoss.faction !== 'ally') {
-          if (dist(f, otherBoss) < B4.PHASE2.STRIKE_RADIUS + (otherBoss.radius||30)) {
-            otherBoss.hp -= p2.STRIKE_FIRE_DAMAGE;
+        forEachOtherBoss(otherBoss, (ob) => {
+          if (ob.faction === 'ally') return;
+          if (dist(f, ob) < B4.PHASE2.STRIKE_RADIUS + (ob.radius||30)) {
+            ob.hp -= p2.STRIKE_FIRE_DAMAGE;
           }
-        }
+        });
       } else {
         if (!P.hidden && !P.invincible && dist(f, P) < B4.PHASE2.STRIKE_RADIUS + P.radius) {
           gameState.dmgPlayer(p2.STRIKE_FIRE_DAMAGE);
@@ -1076,12 +1076,12 @@ export function updateBoss4(boss, P, bullets, eBullets, mines, particles, gameSt
             }
           }
         }
-        // Also damage charmed otherBoss
-        if (otherBoss && otherBoss.hp > 0 && otherBoss.faction === 'ally') {
-          if (dist(f, otherBoss) < B4.PHASE2.STRIKE_RADIUS + (otherBoss.radius||30)) {
-            otherBoss.hp -= p2.STRIKE_FIRE_DAMAGE;
+        forEachOtherBoss(otherBoss, (ob) => {
+          if (ob.faction !== 'ally') return;
+          if (dist(f, ob) < B4.PHASE2.STRIKE_RADIUS + (ob.radius||30)) {
+            ob.hp -= p2.STRIKE_FIRE_DAMAGE;
           }
-        }
+        });
       }
       if (f.life <= 0) {
         if (!b.burnMarks) b.burnMarks = [];
@@ -1142,17 +1142,17 @@ export function updateBoss4(boss, P, bullets, eBullets, mines, particles, gameSt
               }
             }
           }
-          // Also damage non-charmed otherBoss — use perpendicular distance
-          if (otherBoss && otherBoss.hp > 0 && otherBoss.faction !== 'ally') {
+          forEachOtherBoss(otherBoss, (ob) => {
+            if (ob.faction === 'ally') return;
             const dx = Math.cos(ba), dy = Math.sin(ba);
-            const rx = otherBoss.x - b.x, ry = otherBoss.y - b.y;
+            const rx = ob.x - b.x, ry = ob.y - b.y;
             const cross = Math.abs(rx * dy - ry * dx);
             const dot = rx * dx + ry * dy;
-            if (cross < 20 + (otherBoss.radius || 30) && dot > 0 && dot < p3.BEAM_HIT_RANGE) {
-              otherBoss.hp -= p3.BEAM_DAMAGE_PER_FRAME * 2;
-              otherBoss.hitFlash = 4;
+            if (cross < 20 + (ob.radius || 30) && dot > 0 && dot < p3.BEAM_HIT_RANGE) {
+              ob.hp -= p3.BEAM_DAMAGE_PER_FRAME * 2;
+              ob.hitFlash = 4;
             }
-          }
+          });
         } else {
           if (!P.hidden && !P.invincible) {
             const pAngle = ang(b, P);
@@ -1173,17 +1173,17 @@ export function updateBoss4(boss, P, bullets, eBullets, mines, particles, gameSt
               }
             }
           }
-          // Also damage charmed otherBoss — use perpendicular distance for reliable hit
-          if (otherBoss && otherBoss.hp > 0 && otherBoss.faction === 'ally') {
+          forEachOtherBoss(otherBoss, (ob) => {
+            if (ob.faction !== 'ally') return;
             const dx = Math.cos(ba), dy = Math.sin(ba);
-            const rx = otherBoss.x - b.x, ry = otherBoss.y - b.y;
+            const rx = ob.x - b.x, ry = ob.y - b.y;
             const cross = Math.abs(rx * dy - ry * dx);
             const dot = rx * dx + ry * dy;
-            if (cross < 20 + (otherBoss.radius || 30) && dot > 0 && dot < p3.BEAM_HIT_RANGE) {
-              otherBoss.hp -= p3.BEAM_DAMAGE_PER_FRAME * 2;
-              otherBoss.hitFlash = 4;
+            if (cross < 20 + (ob.radius || 30) && dot > 0 && dot < p3.BEAM_HIT_RANGE) {
+              ob.hp -= p3.BEAM_DAMAGE_PER_FRAME * 2;
+              ob.hitFlash = 4;
             }
-          }
+          });
         }
       }
       if (b.beamDuration <= 0) b.beaming = false;
@@ -1288,12 +1288,13 @@ export function updateBoss4(boss, P, bullets, eBullets, mines, particles, gameSt
             }
           }
         }
-        if (otherBoss && otherBoss.hp > 0 && otherBoss.faction !== 'ally') {
-          if (dist(ghost, otherBoss) < ghost.radius + (otherBoss.radius||30)) {
-            otherBoss.hp -= ghost.damage;
-            otherBoss.hitFlash = 4;
+        forEachOtherBoss(otherBoss, (ob) => {
+          if (ob.faction === 'ally') return;
+          if (dist(ghost, ob) < ghost.radius + (ob.radius||30)) {
+            ob.hp -= ghost.damage;
+            ob.hitFlash = 4;
           }
-        }
+        });
       } else {
         if (!P.hidden && !P.invincible && dist(ghost, P) < ghost.radius + P.radius) {
           gameState.dmgPlayer(ghost.damage);
@@ -1489,12 +1490,13 @@ export function updateBoss4(boss, P, bullets, eBullets, mines, particles, gameSt
             }
           }
         }
-        if (otherBoss && otherBoss.hp > 0 && otherBoss.faction !== 'ally') {
-          if (_hitBeam2(otherBoss.x, otherBoss.y, otherBoss.radius||30)) {
-            otherBoss.hp -= B4.PHASE1.SLICE_DAMAGE_PER_FRAME;
-            otherBoss.hitFlash = 4;
+        forEachOtherBoss(otherBoss, (ob) => {
+          if (ob.faction === 'ally') return;
+          if (_hitBeam2(ob.x, ob.y, ob.radius||30)) {
+            ob.hp -= B4.PHASE1.SLICE_DAMAGE_PER_FRAME;
+            ob.hitFlash = 4;
           }
-        }
+        });
       } else {
         if (!P.hidden && !P.invincible) {
           if (_hitBeam2(P.x, P.y, P.radius)) {
@@ -1510,12 +1512,13 @@ export function updateBoss4(boss, P, bullets, eBullets, mines, particles, gameSt
             }
           }
         }
-        if (otherBoss && otherBoss.hp > 0 && otherBoss.faction === 'ally') {
-          if (_hitBeam2(otherBoss.x, otherBoss.y, otherBoss.radius||30)) {
-            otherBoss.hp -= B4.PHASE1.SLICE_DAMAGE_PER_FRAME;
-            otherBoss.hitFlash = 4;
+        forEachOtherBoss(otherBoss, (ob) => {
+          if (ob.faction !== 'ally') return;
+          if (_hitBeam2(ob.x, ob.y, ob.radius||30)) {
+            ob.hp -= B4.PHASE1.SLICE_DAMAGE_PER_FRAME;
+            ob.hitFlash = 4;
           }
-        }
+        });
       }
       if (b.sliceDuration <= 0) b.sliceActive = false;
     }
@@ -1580,14 +1583,14 @@ export function updateBoss4(boss, P, bullets, eBullets, mines, particles, gameSt
             }
           }
         }
-        // Also damage non-charmed otherBoss
-        if (otherBoss && otherBoss.hp > 0 && otherBoss.faction !== 'ally') {
-          if (dist(b, otherBoss) < b.radius + (otherBoss.radius||30) + 8) {
-            otherBoss.hp -= p2.DASH_DAMAGE;
-            otherBoss.hitFlash = 8;
-            particles.spawn(otherBoss.x, otherBoss.y, '#ff00ff', 5, 3, 12, 3);
+        forEachOtherBoss(otherBoss, (ob) => {
+          if (ob.faction === 'ally') return;
+          if (dist(b, ob) < b.radius + (ob.radius||30) + 8) {
+            ob.hp -= p2.DASH_DAMAGE;
+            ob.hitFlash = 8;
+            particles.spawn(ob.x, ob.y, '#ff00ff', 5, 3, 12, 3);
           }
-        }
+        });
       } else {
         if (!P.hidden && !P.invincible && dist(b, P) < b.radius + P.radius + 10) {
           gameState.dmgPlayer(p2.DASH_DAMAGE);
@@ -1604,14 +1607,14 @@ export function updateBoss4(boss, P, bullets, eBullets, mines, particles, gameSt
             }
           }
         }
-        // Also damage charmed otherBoss
-        if (otherBoss && otherBoss.hp > 0 && otherBoss.faction === 'ally') {
-          if (dist(b, otherBoss) < b.radius + (otherBoss.radius||30) + 8) {
-            otherBoss.hp -= p2.DASH_DAMAGE;
-            otherBoss.hitFlash = 8;
-            particles.spawn(otherBoss.x, otherBoss.y, '#ff00ff', 5, 3, 12, 3);
+        forEachOtherBoss(otherBoss, (ob) => {
+          if (ob.faction !== 'ally') return;
+          if (dist(b, ob) < b.radius + (ob.radius||30) + 8) {
+            ob.hp -= p2.DASH_DAMAGE;
+            ob.hitFlash = 8;
+            particles.spawn(ob.x, ob.y, '#ff00ff', 5, 3, 12, 3);
           }
-        }
+        });
       }
       if (dist(b, b.dashTarget) < 30) {
         b.dashCount--;
@@ -1687,22 +1690,18 @@ export function updateBoss4(boss, P, bullets, eBullets, mines, particles, gameSt
     P.y += Math.sin(pa) * B4.CONTACT_KNOCKBACK;
     gameState.screenShake = 8;
   }
-  // Contact damage to otherBoss
-  if (otherBoss && otherBoss.hp > 0 && dist(b, otherBoss) < b.radius + (otherBoss.radius||30)) {
-    if (isCharmed && otherBoss.faction === 'enemy') {
-      otherBoss.hp -= B4.CONTACT_DAMAGE;
-      otherBoss.hitFlash = 6;
-      const ka = ang(b, otherBoss);
-      otherBoss.vx = (otherBoss.vx||0) + Math.cos(ka) * 3;
-      otherBoss.vy = (otherBoss.vy||0) + Math.sin(ka) * 3;
-    } else if (!isCharmed && otherBoss.faction === 'ally') {
-      otherBoss.hp -= B4.CONTACT_DAMAGE;
-      otherBoss.hitFlash = 6;
-      const ka = ang(b, otherBoss);
-      otherBoss.vx = (otherBoss.vx||0) + Math.cos(ka) * 3;
-      otherBoss.vy = (otherBoss.vy||0) + Math.sin(ka) * 3;
-    }
-  }
+  // Contact damage to otherBoss(es)
+  forEachOtherBoss(otherBoss, (ob) => {
+    if (dist(b, ob) >= b.radius + (ob.radius||30)) return;
+    const shouldHit = (isCharmed && ob.faction === 'enemy')
+                   || (!isCharmed && ob.faction === 'ally');
+    if (!shouldHit) return;
+    ob.hp -= B4.CONTACT_DAMAGE;
+    ob.hitFlash = 6;
+    const ka = ang(b, ob);
+    ob.vx = (ob.vx||0) + Math.cos(ka) * 3;
+    ob.vy = (ob.vy||0) + Math.sin(ka) * 3;
+  });
 
   // Death check
   if (b.hp <= 0 && !b.dying) {
