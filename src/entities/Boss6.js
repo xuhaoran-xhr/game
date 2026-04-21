@@ -31,6 +31,7 @@ import {
   applyAoEDamage,
   phaseCount,
   phaseCD,
+  pickFirstBoss,
 } from '../bossShared/index.js';
 
 // Vite handles PNG imports natively — returns a URL/path suitable for Phaser.
@@ -867,6 +868,10 @@ export function updateBoss6(b, P, bullets, eBullets, mines, particles, gameState
   const B6 = CONFIG.BOSS6;
   const W = gameState.W, H = gameState.H;
   const scene = gameState.scene;
+  // GameScene now passes an array; most of Boss6's code expects a single
+  // object (threat table, target selection, etc). Shared helpers support
+  // both forms, but direct field access below doesn't.
+  otherBoss = pickFirstBoss(otherBoss);
 
   // ========= Death sequence =========
   if (b.dying) {

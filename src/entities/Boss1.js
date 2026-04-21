@@ -3,7 +3,7 @@
 // ===========================
 import CONFIG from '../config.js';
 import { ang, dist, lerp, clamp, getCharmedTarget } from '../utils.js';
-import { tickBossStatus } from '../bossShared/index.js';
+import { tickBossStatus, pickFirstBoss } from '../bossShared/index.js';
 
 export function createBoss1(W, H, wave) {
   const BC = CONFIG.BOSS;
@@ -39,6 +39,8 @@ export function updateBoss1(boss, P, bullets, eBullets, mines, particles, gameSt
   const b = boss;
   const W = gameState.W;
   const H = gameState.H;
+  // GameScene now passes an array; Boss1's legacy code expects a single object.
+  otherBoss = pickFirstBoss(otherBoss);
 
   // Entry animation
   if (!b.entered) {

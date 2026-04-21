@@ -90,20 +90,10 @@ export default class WaveManager {
   }
 
   _spawnBossForWave(wave) {
-    // Determine which boss to spawn based on wave number
-    // Wave 5→Boss1, 10→Boss2, 15→Boss3, 20→Boss4, 25→Boss5, 30→Boss6, then cycle
-    const bossIndex = (wave / CONFIG.BOSS.SPAWN_EVERY_N_WAVES);
-    const bossType = ((bossIndex - 1) % 6) + 1;
-
-    switch (bossType) {
-      case 1: this.scene.spawnBoss(); break;
-      case 2: this.scene.spawnBoss2(); break;
-      case 3: this.scene.spawnBoss3(); break;
-      case 4: this.scene.spawnBoss4(); break;
-      case 5: this.scene.spawnBoss5(); break;
-      case 6: this.scene.spawnBoss6(); break;
-      default: this.scene.spawnBoss(); break;
-    }
+    // Wave 5→Boss1, 10→Boss2, ..., 30→Boss6, then cycle (modulo 6).
+    const bossIndex = wave / CONFIG.BOSS.SPAWN_EVERY_N_WAVES;
+    const bossId = ((bossIndex - 1) % 6) + 1;
+    this.scene.spawnBoss(bossId);
   }
 
   reset() {

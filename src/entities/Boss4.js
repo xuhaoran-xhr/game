@@ -5,7 +5,7 @@
 import CONFIG from '../config.js';
 import { ang, dist, lerp, clamp, rand, randInt, getCharmedTarget } from '../utils.js';
 import { startMatrixRain, updateMatrixPhase, stopMatrixRain } from '../systems/MatrixRain.js';
-import { tickBossStatus } from '../bossShared/index.js';
+import { tickBossStatus, pickFirstBoss } from '../bossShared/index.js';
 
 // ===== Ghost CSS & DOM helpers =====
 let ghostCSSInjected = false;
@@ -429,6 +429,8 @@ export function updateBoss4(boss, P, bullets, eBullets, mines, particles, gameSt
   const B4 = CONFIG.BOSS4;
   const W = gameState.W;
   const H = gameState.H;
+  // GameScene now passes an array; Boss4's legacy code expects a single object.
+  otherBoss = pickFirstBoss(otherBoss);
 
   // ===== ENTRANCE SEQUENCE =====
   if (!b.entered) {

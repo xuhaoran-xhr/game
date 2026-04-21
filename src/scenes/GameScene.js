@@ -7,12 +7,8 @@ import { createPlayer, resetPlayer, updatePlayer, dmgPlayer, castBlackHole, cast
 import { createBerserker, resetBerserker, updateBerserker, drawBerserker, getActiveHitboxes, isHitboxColliding, addRage, activateFrenzy, startExecution, updateExecution, startUltimateExecution, updateUltimateExecution, startCharging, releaseChargeSlash } from '../entities/Berserker.js';
 import { WEAPONS, shoot } from '../entities/weapons.js';
 import { spawnEnemy, updateEnemies, drawEnemies } from '../entities/Enemy.js';
-import { createBoss1, updateBoss1, drawBoss1 } from '../entities/Boss1.js';
-import { createBoss2, updateBoss2, drawBoss2 } from '../entities/Boss2.js';
-import { createBoss3, updateBoss3, drawBoss3 } from '../entities/Boss3.js';
-import { createBoss4, updateBoss4, drawBoss4 } from '../entities/Boss4.js';
-import { createBoss5, updateBoss5, drawBoss5 } from '../entities/Boss5.js';
-import { createBoss6, updateBoss6, drawBoss6, preloadBoss6Assets, registerBoss6Animations } from '../entities/Boss6.js';
+import { createBoss, BOSS_META, bossIdFromType } from '../entities/bossRegistry.js';
+import { preloadBoss6Assets, registerBoss6Animations } from '../entities/Boss6.js';
 import { destroyMatrixRain, startMatrixRain, drawMatrixRain } from '../systems/MatrixRain.js';
 import { createCSSRainBG, destroyCSSRainBG } from '../systems/CSSRainBG.js';
 import ParticleManager from '../systems/ParticleManager.js';
@@ -295,40 +291,16 @@ export default class GameScene extends Phaser.Scene {
     this.enemies.push(spawnEnemy(this.scale.width, this.scale.height, this.waveManager.wave));
   }
 
-  spawnBoss() {
+  /**
+   * Spawn a boss by numeric id (1-6). Replaces the previous 6 copy-pasted
+   * spawnBoss / spawnBoss2 / ... / spawnBoss6 methods.
+   */
+  spawnBoss(id) {
+    const meta = BOSS_META[id];
+    if (!meta) { console.warn('spawnBoss: unknown id', id); return; }
     this.bossActive = true;
-    this.bosses.push(createBoss1(this.scale.width, this.scale.height, this.waveManager.wave));
-    this.showWaveText('⚠ BOSS 降临 ⚠');
-  }
-
-  spawnBoss2() {
-    this.bossActive = true;
-    this.bosses.push(createBoss2(this.scale.width, this.scale.height, this.waveManager.wave));
-    this.showWaveText('⚠ 幻影织网者 ⚠');
-  }
-
-  spawnBoss3() {
-    this.bossActive = true;
-    this.bosses.push(createBoss3(this.scale.width, this.scale.height, this.waveManager.wave));
-    this.showWaveText('⚠ 星核守卫 ⚠');
-  }
-
-  spawnBoss4() {
-    this.bossActive = true;
-    this.bosses.push(createBoss4(this.scale.width, this.scale.height, this.waveManager.wave));
-    this.showWaveText('⚠ PROTOCOL OMEGA ⚠');
-  }
-
-  spawnBoss5() {
-    this.bossActive = true;
-    this.bosses.push(createBoss5(this.scale.width, this.scale.height, this.waveManager.wave));
-    this.showWaveText('⚠ 堕落幽影 ⚠');
-  }
-
-  spawnBoss6() {
-    this.bossActive = true;
-    this.bosses.push(createBoss6(this.scale.width, this.scale.height, this.waveManager.wave));
-    this.showWaveText('⚠ 深渊术士 降临 ⚠');
+    this.bosses.push(createBoss(id, this.scale.width, this.scale.height, this.waveManager.wave));
+    this.showWaveText(meta.spawnText);
   }
 
   // ---- Custom Mode Methods ----
@@ -554,49 +526,30 @@ export default class GameScene extends Phaser.Scene {
       if (isAlly) { e.charmed = 999999; e.faction = 'ally'; }
       this.enemies.push(e);
       this.particles.spawn(x, y, u.type === 'dummy' ? '#888888' : (isAlly ? '#cc44ff' : '#ff4466'), 10, 3, 15, 3);
-    } else if (u.type === 'boss1') {
-      const b = createBoss1(W, H, wave);
-      b.x = x; b.y = y; b.entered = true;
-      if (isAlly) { b.charmed = 999999; b.faction = 'ally'; }
-      this.bosses.push(b);
-      this.bossActive = true;
-      this.particles.spawn(x, y, isAlly ? '#cc44ff' : '#ff2244', 20, 5, 25, 4);
-    } else if (u.type === 'boss2') {
-      const b = createBoss2(W, H, wave);
-      b.x = x; b.y = y; b.entered = true;
-      if (isAlly) { b.charmed = 999999; b.faction = 'ally'; }
-      this.bosses.push(b);
-      this.bossActive = true;
-      this.particles.spawn(x, y, isAlly ? '#cc44ff' : '#00ffcc', 20, 5, 25, 4);
-    } else if (u.type === 'boss3') {
-      const b = createBoss3(W, H, wave);
-      b.x = x; b.y = y; b.entered = true;
-      if (isAlly) { b.charmed = 999999; b.faction = 'ally'; }
-      this.bosses.push(b);
-      this.bossActive = true;
-      this.particles.spawn(x, y, isAlly ? '#cc44ff' : '#FFD700', 20, 5, 25, 4);
-    } else if (u.type === 'boss4') {
-      const b = createBoss4(W, H, wave);
-      b.x = x; b.y = y; b.entered = true; b.phase = 1;
-      if (isAlly) { b.charmed = 999999; b.faction = 'ally'; }
-      this.bosses.push(b);
-      this.bossActive = true;
-      this.particles.spawn(x, y, isAlly ? '#cc44ff' : '#00ffff', 30, 8, 35, 5);
-      startMatrixRain(this.scale.width, this.scale.height, 1);
-    } else if (u.type === 'boss5') {
-      const b = createBoss5(W, H, wave);
-      b.x = x; b.y = y; b.entered = true;
-      if (isAlly) { b.charmed = 999999; b.faction = 'ally'; }
-      this.bosses.push(b);
-      this.bossActive = true;
-      this.particles.spawn(x, y, isAlly ? '#cc44ff' : '#8800ff', 30, 8, 35, 5);
-    } else if (u.type === 'boss6') {
-      const b = createBoss6(W, H, wave);
-      b.x = x; b.y = y; b.entered = true;
-      if (isAlly) { b.charmed = 999999; b.faction = 'ally'; }
-      this.bosses.push(b);
-      this.bossActive = true;
-      this.particles.spawn(x, y, isAlly ? '#cc44ff' : '#ff2255', 30, 8, 35, 5);
+    } else {
+      // Boss unit: u.type is 'boss1' … 'boss6'. Use registry to dispatch.
+      const bossId = bossIdFromType(u.type);
+      if (bossId) {
+        const meta = BOSS_META[bossId];
+        const b = createBoss(bossId, W, H, wave);
+        b.x = x; b.y = y; b.entered = true;
+        if (bossId === 4) b.phase = 1;
+        if (isAlly) { b.charmed = 999999; b.faction = 'ally'; }
+        this.bosses.push(b);
+        this.bossActive = true;
+        // Bigger bosses (4/5/6) use a beefier particle burst
+        const bigBurst = bossId >= 4;
+        this.particles.spawn(
+          x, y,
+          isAlly ? '#cc44ff' : meta.particleColor,
+          bigBurst ? 30 : 20,
+          bigBurst ? 8 : 5,
+          bigBurst ? 35 : 25,
+          bigBurst ? 5 : 4,
+        );
+        // Boss4 also triggers matrix rain on spawn
+        if (bossId === 4) startMatrixRain(this.scale.width, this.scale.height, 1);
+      }
     }
     this.screenShake = 3;
   }
@@ -653,13 +606,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.bosses = [];
     for (const id of picked) {
-      let bRef;
-      if (id === 1) bRef = createBoss1(W, H, effectiveWave);
-      else if (id === 2) bRef = createBoss2(W, H, effectiveWave);
-      else if (id === 3) bRef = createBoss3(W, H, effectiveWave);
-      else if (id === 4) bRef = createBoss4(W, H, effectiveWave);
-      else if (id === 5) bRef = createBoss5(W, H, effectiveWave);
-      else bRef = createBoss6(W, H, effectiveWave);
+      const bRef = createBoss(id, W, H, effectiveWave);
       bRef.hp = Math.floor(bRef.hp * hpMul);
       bRef.maxHp = bRef.hp;
       bRef.speed *= spdMul;
@@ -1684,9 +1631,10 @@ export default class GameScene extends Phaser.Scene {
     this.bosses = this.bosses.filter(boss => {
       const otherBosses = this.bosses.filter(ob => ob !== boss && ob.hp > 0);
       const otherBossHpBefore = new Map(otherBosses.map(ob => [ob, ob.hp]));
-      // Boss5 receives the full array; other bosses receive the first one for backward compat
-      const otherBossArg = boss.isBoss5 ? otherBosses : (otherBosses[0] || null);
-      const dead = boss.updateFn(boss, P, this.bullets, this.eBullets, this.mines, this.particles, this.gameStateProxy, WEAPONS, this.enemies, otherBossArg);
+      // All bosses now accept an otherBoss array. Single-boss-only code paths
+      // (Boss1-4, Boss6) call `pickFirstBoss(otherBoss)` at update top to
+      // normalize back to a single value — see bossShared/targeting.js.
+      const dead = boss.updateFn(boss, P, this.bullets, this.eBullets, this.mines, this.particles, this.gameStateProxy, WEAPONS, this.enemies, otherBosses);
       if (boss.faction === 'ally') {
         for (const ob of otherBosses) {
           const prevHp = otherBossHpBefore.get(ob) || 0;

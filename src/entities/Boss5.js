@@ -209,7 +209,6 @@ export function createBoss5(W, H, wave) {
     // Targeting
     lastTargetPos: null,
 
-    isBoss5: true,
     updateFn: updateBoss5,
     drawFn: drawBoss5,
     ...createBoss5AIState(),

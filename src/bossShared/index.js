@@ -12,6 +12,7 @@ export {
   collectHostiles,
   nearestHostile,
   countHostilesNear,
+  pickFirstBoss,
 } from './targeting.js';
 
 export { applyAoEDamage } from './aoe.js';

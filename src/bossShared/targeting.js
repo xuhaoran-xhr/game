@@ -87,3 +87,18 @@ export function countHostilesNear(src, x, y, radius, P, enemies, otherBoss) {
   }
   return n;
 }
+
+/**
+ * Historically GameScene passed a SINGLE otherBoss to each boss's update(), or
+ * the full array only to Boss5 (via `boss.isBoss5` flag). Now GameScene
+ * uniformly passes an array; bosses that still do per-field access on
+ * otherBoss can call `pickFirstBoss(otherBoss)` at the top of their update
+ * to get back the single-boss value they expect.
+ *
+ * Returns the first element of an array, or the value itself if not an array,
+ * or null if empty/undefined.
+ */
+export function pickFirstBoss(otherBoss) {
+  if (Array.isArray(otherBoss)) return otherBoss[0] || null;
+  return otherBoss || null;
+}
