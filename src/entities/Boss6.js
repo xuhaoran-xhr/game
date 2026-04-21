@@ -21,6 +21,17 @@
 // ===========================
 import CONFIG from '../config.js';
 import { dist, ang } from '../utils.js';
+import {
+  targetTeam,
+  isHostileTo,
+  isTargetable,
+  collectHostiles,
+  nearestHostile,
+  countHostilesNear,
+  applyAoEDamage,
+  phaseCount,
+  phaseCD,
+} from '../bossShared/index.js';
 
 // Vite handles PNG imports natively — returns a URL/path suitable for Phaser.
 import mage3Url     from '../assets/boss6/mage-3-87x110.png';
@@ -257,106 +268,8 @@ function clearActiveSkillSprites(b) {
   b.oceanQueue = [];
 }
 
-function phaseCount(b, p1, p2, p3) {
-  return b.phase === 1 ? p1 : (b.phase === 2 ? p2 : p3);
-}
-
-// =================================================================
-//  Faction / targeting helpers
-// =================================================================
-/**
- * Map a unit's faction to its "team":
- *   'player' / 'ally'  → 'good'
- *   anything else ('enemy', undefined) → 'bad'
- * Used to unify player-vs-enemy logic for AoE skills.
- */
-function targetTeam(u) {
-  const f = u.faction || 'player';
-  return (f === 'player' || f === 'ally') ? 'good' : 'bad';
-}
-function isHostileTo(src, tgt) {
-  return targetTeam(src) !== targetTeam(tgt);
-}
-
-/**
- * A unit is "targetable" if it's alive, not hidden, and not mid-launch. Launched
- * targets cannot be selected, cannot be threat targets, and cannot take AoE
- * damage during flight (they take the dedicated fall damage on landing).
- */
-function isTargetable(t) {
-  return t && t.hp > 0 && !t.hidden && !t.launched;
-}
-
-/**
- * Collect every unit currently hostile to boss `b` AND targetable. Used by
- * shadow traps, tentacle launch pick, etc. to pick a valid target.
- */
-function collectHostiles(b, P, enemies, otherBoss) {
-  const list = [];
-  if (P && isTargetable(P) && isHostileTo(b, P)) list.push(P);
-  if (enemies) {
-    for (const e of enemies) {
-      if (isTargetable(e) && isHostileTo(b, e)) list.push(e);
-    }
-  }
-  if (otherBoss && isTargetable(otherBoss) && isHostileTo(b, otherBoss)) list.push(otherBoss);
-  return list;
-}
-
-/**
- * Find the closest hostile within `maxDist` of (x, y). Returns null if none.
- * Distance check accounts for target radius so "reach" feels consistent across
- * small grunts and big bosses.
- */
-function nearestHostile(b, x, y, maxDist, P, enemies, otherBoss) {
-  let best = null, bestD = maxDist;
-  for (const h of collectHostiles(b, P, enemies, otherBoss)) {
-    const hR = h === P ? P.radius : (h.radius || 12);
-    const d = Math.hypot(h.x - x, h.y - y) - hR;
-    if (d < bestD) { best = h; bestD = d; }
-  }
-  return best;
-}
-
-/**
- * Apply AoE damage centered on (x, y) with `radius` to every unit hostile to
- * the boss `b`: player (when boss is hostile to player's team), enemies
- * (matching hostility), and otherBoss (if opposite team). `onHit(target)`
- * is called per successful hit for custom particle/FX work.
- */
-function applyAoEDamage(b, x, y, radius, damage, P, enemies, otherBoss, gameState, onHit) {
-  // --- Player ---
-  if (P && !P.hidden && !P.invincible && !P.launched && isHostileTo(b, P)) {
-    if (Math.hypot(P.x - x, P.y - y) < P.radius + radius) {
-      gameState.dmgPlayer(damage);
-      if (onHit) onHit(P);
-    }
-  }
-  // --- Enemies (grunts) ---
-  if (enemies) {
-    for (const e of enemies) {
-      if (!e || e.hp <= 0 || e.launched) continue;
-      if (!isHostileTo(b, e)) continue;
-      if (Math.hypot(e.x - x, e.y - y) < (e.radius || 12) + radius) {
-        e.hp -= damage;
-        e.hitFlash = 6;
-        if (onHit) onHit(e);
-      }
-    }
-  }
-  // --- Other boss ---
-  if (otherBoss && otherBoss.hp > 0 && isHostileTo(b, otherBoss)) {
-    if (Math.hypot(otherBoss.x - x, otherBoss.y - y) < (otherBoss.radius || 30) + radius) {
-      otherBoss.hp -= damage;
-      otherBoss.hitFlash = 6;
-      if (onHit) onHit(otherBoss);
-    }
-  }
-}
-
-function phaseCD(b, p1, p2, p3) {
-  return b.phase === 1 ? p1 : (b.phase === 2 ? p2 : p3);
-}
+// (targetTeam / isHostileTo / isTargetable / collectHostiles / nearestHostile /
+//  applyAoEDamage / phaseCount / phaseCD are now imported from ../bossShared)
 
 // =================================================================
 //  LAUNCH helpers — tentacle "knock up" mechanic
@@ -498,18 +411,6 @@ function spawnShadowTrap(b, scene, gameState, W, H, target) {
     trackedY: sy,
     snareApplied: false,
   });
-}
-
-/**
- * ⑥ 群体密集度扫描: 统计 (x,y) 周围 radius 半径内的 hostile 数量
- * (player + enemies + otherBoss,已排除 launched/hidden)
- */
-function countHostilesNear(b, x, y, radius, P, enemies, otherBoss) {
-  let n = 0;
-  for (const h of collectHostiles(b, P, enemies, otherBoss)) {
-    if (Math.hypot(h.x - x, h.y - y) < radius + (h.radius || 12)) n++;
-  }
-  return n;
 }
 
 /**
