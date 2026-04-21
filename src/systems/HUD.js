@@ -101,7 +101,7 @@ export default class HUD {
 
     // Weapon text
     let wpnName;
-    if (P.isBerserker) {
+    if (P.type === 'melee') {
       wpnName = P.frenzy ? '🩸 嗜血狂化中' : `血刃大剑  怒气:${Math.floor(P.rage || 0)}/100`;
     } else {
       wpnName = weapons[P.weapon].name + (P.rollDmgBoost ? ' [双倍伤害]' : '');
@@ -110,7 +110,7 @@ export default class HUD {
       wpnName = `0x${randHex()}_OVERRIDE`;
       this.weaponText.setColor('#ff0000');
     } else {
-      this.weaponText.setColor(P.isBerserker ? 'rgba(255,100,100,0.7)' : 'rgba(255,255,255,0.5)');
+      this.weaponText.setColor(P.type === 'melee' ? 'rgba(255,100,100,0.7)' : 'rgba(255,255,255,0.5)');
     }
     this.weaponText.setText(wpnName);
 

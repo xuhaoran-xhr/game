@@ -3,8 +3,9 @@
 // ===========================
 import CONFIG from '../config.js';
 import { dist, ang, rand, clamp } from '../utils.js';
-import { createPlayer, resetPlayer, updatePlayer, dmgPlayer, castBlackHole, castCharmEgg, drawPlayer } from '../entities/Player.js';
-import { createBerserker, resetBerserker, updateBerserker, drawBerserker, getActiveHitboxes, isHitboxColliding, addRage, activateFrenzy, startExecution, updateExecution, startUltimateExecution, updateUltimateExecution, startCharging, releaseChargeSlash } from '../entities/Berserker.js';
+import { updatePlayer, dmgPlayer, castBlackHole, castCharmEgg, drawPlayer } from '../entities/Player.js';
+import { updateBerserker, drawBerserker, getActiveHitboxes, isHitboxColliding, addRage, activateFrenzy, startExecution, updateExecution, startUltimateExecution, updateUltimateExecution, startCharging, releaseChargeSlash } from '../entities/Berserker.js';
+import { createCharacter } from '../entities/characterRegistry.js';
 import { WEAPONS, shoot } from '../entities/weapons.js';
 import { spawnEnemy, updateEnemies, drawEnemies } from '../entities/Enemy.js';
 import { createBoss, BOSS_META, bossIdFromType } from '../entities/bossRegistry.js';
@@ -94,13 +95,9 @@ export default class GameScene extends Phaser.Scene {
     this.charmBullets = [];  // Charm Egg projectiles
     this.rifts = [];         // Overdrive dimension rifts
 
-    // Player
-    if (this.characterType === 'melee') {
-      this.P = createBerserker(W, H);
-    } else {
-      this.P = createPlayer(W, H);
-      this.P.weapon = this.startWeapon;
-    }
+    // Player — dispatched via characterRegistry
+    this.P = createCharacter(this.characterType === 'melee' ? 'melee' : 'ranged', W, H);
+    if (this.P.type === 'ranged') this.P.weapon = this.startWeapon;
 
     // Boss references — dynamic array
     this.bosses = [];
@@ -142,7 +139,7 @@ export default class GameScene extends Phaser.Scene {
       }
       if (pointer.rightButtonDown()) {
         this.mouse.rightDown = true;
-        if (this.P && this.P.isBerserker && this.P.frenzy) {
+        if (this.P && this.P.type === 'melee' && this.P.frenzy) {
           // Clear any previous ultimate charge timer
           if (this._ultChargeTimeout) { clearTimeout(this._ultChargeTimeout); this._ultChargeTimeout = null; }
           
@@ -177,7 +174,7 @@ export default class GameScene extends Phaser.Scene {
           clearTimeout(this._ultChargeTimeout);
           this._ultChargeTimeout = null;
           // Quick click with full intent -> normal execution
-          if (this.P && this.P.isBerserker && this.P.frenzy && !this.P.executing && !this.P.ultActive && !this.P.ultCharging) {
+          if (this.P && this.P.type === 'melee' && this.P.frenzy && !this.P.executing && !this.P.ultActive && !this.P.ultCharging) {
             startExecution(this.P, this.enemies, this.bosses || [], this.particles);
           }
         }
@@ -733,7 +730,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Update player (skip entirely when hidden)
     if (!P.hidden) {
-      if (P.isBerserker) {
+      if (P.type === 'melee') {
         updateBerserker(P, this.keys, this.mouse, W, H, this.particles);
       } else {
         updatePlayer(P, this.keys, this.mouse, W, H, this.particles);
@@ -760,7 +757,7 @@ export default class GameScene extends Phaser.Scene {
         }
       }
 
-      if (P.isBerserker) {
+      if (P.type === 'melee') {
         // Action Lock: block all inputs during charge aftermath (收刀硬直)
         const actionLocked = P.chargeAftermaths && P.chargeAftermaths.some(a => !a.triggered);
         if (actionLocked) {
@@ -885,7 +882,7 @@ export default class GameScene extends Phaser.Scene {
       }
 
       // Skills (ranged character only)
-      if (!P.isBerserker) {
+      if (P.type !== 'melee') {
         if (this.keys['q']) { castBlackHole(P, this.gravWells, this.particles); this.screenShake = 3; this.keys['q'] = false; }
         if (this.keys['e']) { castCharmEgg(P, this.charmBullets, this.particles); this.keys['e'] = false; }
       }
@@ -899,7 +896,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Time Dilation calculation
     let timeScale = 1.0;
-    if (P.isBerserker && P.charging && P.chargeTier === 3) {
+    if (P.type === 'melee' && P.charging && P.chargeTier === 3) {
       timeScale = 0.2; // 20% global speed
     }
 
@@ -1322,7 +1319,7 @@ export default class GameScene extends Phaser.Scene {
     });
 
     // === Berserker melee collision ===
-    if (P.isBerserker) {
+    if (P.type === 'melee') {
       const hitboxes = getActiveHitboxes(P);
       hitboxes.forEach(hitbox => {
         const dmg = hitbox.dmg;
@@ -1500,13 +1497,13 @@ export default class GameScene extends Phaser.Scene {
           if (this.comboCount >= PC.COMBO_THRESHOLD) P.comboSpeed = P.speed * PC.COMBO_SPEED_BONUS;
           addRage(P, CONFIG.BERSERKER.RAGE_PER_KILL); // 仅小怪击杀加怒气
           // Track kill intent for Crimson Execution (frenzy kills)
-          if (P.isBerserker && P.frenzy && P.killIntent < CONFIG.BERSERKER.EXEC_KILL_INTENT_MAX) {
+          if (P.type === 'melee' && P.frenzy && P.killIntent < CONFIG.BERSERKER.EXEC_KILL_INTENT_MAX) {
             P.killIntent++;
           }
         }
         this.hitStop = CONFIG.COMBAT.HITSTOP_ON_KILL;
 
-        if (P.isBerserker) {
+        if (P.type === 'melee') {
           const type = e.killedByMeleeHitbox;
           if (type === 'cross') {
             // Shattering (White and red sharp bursts)
@@ -1831,7 +1828,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Player
     if (!P.hidden) {
-      if (P.isBerserker) {
+      if (P.type === 'melee') {
         drawBerserker(P, pg.scene.sys.canvas.getContext('2d'), document.querySelector('canvas'));
       } else {
         drawPlayer(pg, P, this.keys, WEAPONS, time);
@@ -1853,7 +1850,7 @@ export default class GameScene extends Phaser.Scene {
       }
 
       // Training dummy damage counters (drawn AFTER drawBerserker so canvas isn't cleared)
-      if (P.isBerserker && P._canvasEl) {
+      if (P.type === 'melee' && P._canvasEl) {
         const dummyCtx = P._canvasEl.getContext('2d');
         this.enemies.forEach(e => {
           if (!e.isDummy) return;
@@ -1934,7 +1931,7 @@ export default class GameScene extends Phaser.Scene {
       });
 
       // ========== PISTOL OVERHEAT VFX (ranged only) ==========
-      if (!P.isBerserker && P.weapon === 0 && P.pistolHeat > 0.3) {
+      if (P.type !== 'melee' && P.weapon === 0 && P.pistolHeat > 0.3) {
         const heat = P.pistolHeat;
         const t = performance.now() * 0.001;
         const pg2 = this.playerGraphics;
@@ -1979,7 +1976,7 @@ export default class GameScene extends Phaser.Scene {
       }
 
       // ========== RAILGUN VISUALS (ranged only) ==========
-      if (!P.isBerserker) {
+      if (P.type !== 'melee') {
         const PL = CONFIG.WEAPONS.PLASMA;
         const wColor = Phaser.Display.Color.HexStringToColor(PL.COLOR).color;
 
@@ -2205,7 +2202,7 @@ export default class GameScene extends Phaser.Scene {
     cg.beginPath(); cg.moveTo(cx + 5, cy); cg.lineTo(cx + 14, cy); cg.strokePath();
     cg.beginPath(); cg.moveTo(cx, cy - 14); cg.lineTo(cx, cy - 5); cg.strokePath();
     cg.beginPath(); cg.moveTo(cx, cy + 5); cg.lineTo(cx, cy + 14); cg.strokePath();
-    if (!P.isBerserker && P.rollDmgBoost) {
+    if (P.type !== 'melee' && P.rollDmgBoost) {
       cg.lineStyle(1.5, 0xffd700, 0.5);
       cg.strokeCircle(cx, cy, 10);
     }

@@ -9,6 +9,7 @@ const PC = CONFIG.PLAYER;
 export function createPlayer(W, H) {
   return {
     faction: 'player',
+    type: 'ranged',
     x: W / 2, y: H / 2, angle: 0, radius: PC.RADIUS,
     speed: PC.SPEED, hp: PC.MAX_HP, maxHp: PC.MAX_HP,
     rolling: false, rollT: 0, rollDur: PC.ROLL_DURATION, rollCd: 0, rollCdMax: PC.ROLL_COOLDOWN,

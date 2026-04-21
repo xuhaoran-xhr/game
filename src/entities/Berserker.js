@@ -281,9 +281,9 @@ export function createBerserker(W, H) {
 
   return {
     faction: 'player',
+    type: 'melee',
     x: W / 2, y: H / 2, angle: 0, radius: BK.RADIUS,
     speed: BK.SPEED, hp: BK.MAX_HP, maxHp: BK.MAX_HP,
-    isBerserker: true,
     _ghostEl: ghost, _swordEl: sword, _slashEl: slash, _canvasEl: canvas, _vignetteEl: vignette,
 
     // Rolling (Shadow Step)
